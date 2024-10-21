@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Detail</title>
+        <link rel="stylesheet" href="../static/styles/detail.css">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
+        <link href="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.css" rel="stylesheet" />
+        <script src="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.umd.min.js"></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <a class="back-button" href="/">
+                Back home
+            </a>
+            <div class="artist-page">
+                <div class="name">
+                    {{.TheArtist.Name}}
+                </div>
+                <div class="artist-image">
+                    <img src="{{.TheArtist.Image}}" alt="Artist Image">
+                </div>
+            </div>
+
+            <section class="artist-info">
+                <div class="info-content">
+                    <div class="information">
+                        Creation Date : <span class="text">{{.TheArtist.CreationDate}}</span>
+                    </div>
+                    <div class="information">
+                        First album : <span class="text">{{.TheArtist.FirstAlbum}}</span>
+                    </div>
+
+                    <div class="information">
+                        Members : <span class="text">
+                            <ul>
+                                {{range .TheArtist.Members}}
+                                <li>{{.}}</li>
+                                {{end}}
+                            </ul>
+                        </span>
+                    </div>
+                    <div class="information">
+                        Concerts : <span class="text">
+                            <ul>
+                                {{range .TheirConcerts}}
+                                <li>{{.}}</li>
+                                {{end}}
+                            </ul>
+                        </span>
+                    </div>
+                </div>
+
+                <div id="map"></div>
+                <ul id="longitude" hidden>
+                    {{ range .TheirCoords }}
+                        <li>
+                           {{ .Longitude}}
+                        </li>
+                    {{ end }}
+                </ul>
+                <ul id="latitude" hidden>
+                    {{ range .TheirCoords }}
+                        <li>
+                           {{ .Latitude}}
+                        </li>
+                    {{ end }}
+                </ul>
+                <ul id="location" hidden>
+                    {{ range .TheirCoords }}
+                        <li>
+                           {{ .Name}}
+                        </li>
+                    {{ end }}
+                </ul>
+
+                <script>
+                    function addMarker(map, lng, lat, text) {
+                        const popup = new maptilersdk.Popup({ offset: 25 }).setText(text);
+                        new maptilersdk.Marker()
+                            .setLngLat([lng, lat])
+                            .setPopup(popup)
+                            .addTo(map);
+                    }
+        
+                    function extractCoordinates() {
+                        const longitudes = document.querySelectorAll('#longitude li');
+                        const latitudes = document.querySelectorAll('#latitude li');
+                        const locations = document.querySelectorAll('#location li');
+                        const coordinates = [];
+                        for (let i = 0; i < longitudes.length; i++) {
+                            const longitude = parseFloat(longitudes[i].textContent.trim());
+                            const latitude = parseFloat(latitudes[i].textContent.trim());
+                            const location = locations[i].textContent.trim();
+                            coordinates.push({
+                                Location: location,
+                                Longitude: longitude,
+                                Latitude: latitude
+                            });
+                        }
+                        return coordinates;
+                    }
+        
+                    function initMap(){
+                        maptilersdk.config.apiKey = 'ZpqxIjVNztJVDpwaB0Vj';
+                        const map = new maptilersdk.Map({
+                            container: 'map',
+                            style: maptilersdk.MapStyle.STREETS,
+                            zoom: 5
+                        });
+                        map.addControl(new maptilersdk.NavigationControl());
+                        map.addControl(new maptilersdk.GeolocateControl());
+                        const coords = extractCoordinates();
+                        if (coords.length > 0) {
+                            const bounds = new maptilersdk.LngLatBounds();
+                            coords.forEach(coord => {
+                                addMarker(map, coord.Longitude, coord.Latitude,coord.Location);
+                                bounds.extend([coord.Longitude, coord.Latitude]);
+                            });
+                            map.fitBounds(bounds, {
+                                padding: 50
+                            });
+                        }
+                        
+                        return map;
+                    }
+        
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const map = initMap();
+                    });
+                </script>
+            </section>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Home Page</title>
+        <link rel="stylesheet" href="/static/styles/index.css">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
+    </head>
+
+    <body>
+        <div class="header">
+            <header class="title">
+                Groupie Tracker
+            </header>
+            <!-- <form class="search-bar" action="/search" method="GET"></form> -->
+            <section>
+                <img class="search-icon" src="../static/icon/search-icon.png" alt="Search Icon" />
+                <input type="text" id="search-input" placeholder="Search..." />
+            </section>
+        </div>
+
+        <nav class="filters">
+            <section>
+                <label>How many members in the group?</label>
+                <section id="checkboxes">
+                    {{range $num := .Bounds.amtMemb}}<input type="checkbox" id="{{$num}}Membs" value="{{$num}}" />{{$num}}{{end}}
+                </section>
+            </section>
+            <section>
+                <label>Minimum Creation Date :</label>
+                <div style="display: flex; align-items: center;">
+                    <input type="range" id="minCrt" min="{{.Bounds.minCrtD}}" max="{{.Bounds.maxCrtD}}"/>
+                    <span id="printMinCrt">Not Set</span>
+                </div>
+                <label>Maximum Creation Date :</label>
+                <div style="display: flex; align-items: center;">
+                    <input type="range" id="maxCrt" min="{{.Bounds.minCrtD}}" max="{{.Bounds.maxCrtD}}"/>
+                    <span id="printMaxCrt">Not Set</span>
+                </div>
+            </section>
+            <section>
+                <label>Minimum First Album Date :</label>
+                <input type="date" id="minFAD" min="{{.Bounds.minFAD}}" max="{{.Bounds.maxFAD}}" />
+                <label>Maximum First Album Date :</label>
+                <input type="date" id="maxFAD" min="{{.Bounds.minFAD}}" max="{{.Bounds.maxFAD}}" />
+            </section>
+            <section>
+                <label for="locSelect">Filter by Locations :</label>
+                <select name="locSelect" id="locSelect">
+                    <option value="">-- Select a Location --</option>
+                    {{range .Locations}}<option value="{{.}}">{{.}}</option>{{end}}
+                </select>
+            </section>
+            <section>
+                <label for="dateSelect">Filter by Concert Dates :</label>
+                <select name="dateSelect" id="dateSelect">
+                    <option value="">-- Select a Date --</option>
+                    {{range .Dates}}<option value="{{.}}">{{.}}</option>{{end}}
+                </select>
+            </section>
+            <button id="filteReset">Reset Filters</button>
+        </nav>
+        
+        <div class="container" id="suggestions">
+            {{range .Artists}}
+            <a href="/detail/{{.Id}}">
+                <div class="card">
+                    <img class="card-image" src="{{.Image}}">
+                    <div class="name-author">
+                        {{.Name}}
+                    </div>
+                </div>
+            </a>
+            {{end}}
+        </div>
+    </body>
+
+    
+    <script>
+        function updateRangeValue(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+        
+        async function fetchSuggestions(query) {
+            try {
+                const response = await fetch(`/search?q=${query}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const suggestions = await response.json();
+                displaySuggestions(suggestions);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                displaySuggestions([]);
+            }
+        }
+
+        function displaySuggestions(suggestions) {
+            const suggestionBox = document.getElementById("suggestions");
+
+            if (suggestions.length === 0) {
+                suggestionBox.style.display = "flex";
+                suggestionBox.style.justifyContent = "center";
+                suggestionBox.innerHTML = "<h2>No results found</h2>";
+                return;
+            }
+
+            suggestionBox.style.display = "grid";
+            suggestionBox.innerHTML = ""; // On vide les suggestions actuelles
+
+            suggestions.forEach(suggestion => {
+                if (suggestion.type === "artist/band") {
+                    const card = `
+                    <a href="/detail/${suggestion.band.id}">
+                        <div class="card">
+                            <img class="card-image" src="${suggestion.band.image}" alt="${suggestion.band.name}">
+                            <div class="name-author">
+                                ${suggestion.band.name}
+                            </div>
+                        </div>
+                    </a>
+                `;
+                    suggestionBox.insertAdjacentHTML('beforeend', card);
+                } else {
+                    // Pour les autres types de résultats (membres, locations, etc.), 
+                    // vous pouvez choisir de les afficher différemment ou de ne pas les afficher du tout
+                    const listItem = `<li>${suggestion.type}: ${suggestion.band}</li>`;
+                    suggestionBox.insertAdjacentHTML('beforeend', listItem);
+                }
+            });
+        }
+        
+        function displayAllArtists() {
+            const suggestionBox = document.getElementById("suggestions");
+            suggestionBox.innerHTML = `
+            {{range .Artists}}
+            <a href="/detail/{{.Id}}">
+                <div class="card">
+                    <img class="card-image" src="{{.Image}}">
+                    <div class="name-author">
+                        {{.Name}}
+                    </div>
+                </div>
+            </a>
+            {{end}}
+            `;
+        }
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById("search-input");
+            const suggestionBox = document.getElementById("suggestions");
+
+            const MinRangeCrt = document.getElementById("minCrt");
+            const MaxRangeCrt = document.getElementById("maxCrt");
+            const MinDateFAD = document.getElementById("minFAD");
+            const MaxDateFAD = document.getElementById("maxFAD");
+            const LocSelect = document.getElementById("locSelect");
+            const DateSelect = document.getElementById("dateSelect");
+
+            const checkboxes = document.getElementById("checkboxes").children;
+
+            var membNum = [];
+            var minCrtD = "Not Set";
+            var maxCrtD = "Not Set";
+            var minFAD = "";
+            var maxFAD = "";
+            var location = "";
+            var date = "";
+
+            for (i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].addEventListener("change", (event) => {
+                    if (event.target.checked) {
+                        if (membNum.indexOf(event.target.value) == -1) {
+                            membNum.push(event.target.value);
+                        }
+                    } else {
+                        membNum.splice(membNum.indexOf(event.target.value), 1);
+                    }
+                    filterArtists();
+                });
+            }
+
+            MinRangeCrt.addEventListener("input", (event) => {
+                minCrtD = event.target.value;
+                updateRangeValue("printMinCrt", minCrtD);
+            });
+            MinRangeCrt.addEventListener("change", filterArtists);
+
+            MaxRangeCrt.addEventListener("input", (event) => {
+                maxCrtD = event.target.value;
+                updateRangeValue("printMaxCrt", maxCrtD);
+            });
+            MaxRangeCrt.addEventListener("change", filterArtists);
+
+            MinDateFAD.addEventListener("change", () => {
+                minFAD = MinDateFAD.value;
+                filterArtists();
+            });
+            MaxDateFAD.addEventListener("change", () => {
+                maxFAD = MaxDateFAD.value;
+                filterArtists();
+            });
+
+            LocSelect.addEventListener("change", () => {
+                location = LocSelect.value;
+                filterArtists();
+            });
+            DateSelect.addEventListener("change", () => {
+                date = DateSelect.value;
+                filterArtists();
+            });
+
+            document.getElementById("filteReset").addEventListener("click", () => {
+                resetFilters();
+            });
+
+            function resetFilters() {
+                suggestionBox.style.display = "grid";
+
+                for (i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = false;
+                }
+
+                membNum = [];
+                minCrtD = "Not Set";
+                maxCrtD = minCrtD;
+                minFAD = "";
+                maxFAD = minFAD;
+                location = "";
+                date = "";
+
+                MinRangeCrt.value = "";
+                MaxRangeCrt.value = "";
+                updateRangeValue("printMinCrt", minCrtD);
+                updateRangeValue("printMaxCrt", maxCrtD);
+                MinDateFAD.value = minFAD;
+                MaxDateFAD.value = maxFAD;
+
+                LocSelect.value = "";
+                DateSelect.value = "";
+
+                displayAllArtists();
+            }
+            
+            async function filterArtists() {
+                if (membNum.length == 0 
+                        && minCrtD == "Not Set" 
+                        && maxCrtD == "Not Set" 
+                        && minFAD == ""
+                        && maxFAD == ""
+                        && location == ""
+                        && date == "") {
+                    displayAllArtists();
+                    return;
+                }
+
+                var url = "/filter?";
+                if (membNum.length > 0) {
+                    url += "membs=" + membNum + "&";
+                }
+                if (minCrtD != "Not Set") {
+                    url += "minCrtD=" + minCrtD + "&";
+                }
+                if (maxCrtD != "Not Set") {
+                    url += "maxCrtD=" + maxCrtD + "&";
+                }
+                if (minFAD != "") {
+                    url += "minFAD=" + minFAD + "&";
+                }
+                if (maxFAD != "") {
+                    url += "maxFAD=" + maxFAD + "&";
+                }
+                if (location != "") {
+                    url += "location=" + location + "&";
+                }
+                if (date != "") {
+                    url += "date=" + date + "&";
+                }
+
+                try {
+                    const response = await fetch(url.slice(0, -1));
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    const data = await response.json();
+                    if (data == "Error") {
+                        throw new Error('Server threw error');
+                    }
+                    displaySuggestions(data);
+                } catch(e) {
+                    console.error("Error fetching data: ", e);
+                    displaySuggestions([]);
+                }
+            }
+
+            // Afficher tous les artistes au chargement de la page
+            //displayAllArtists();
+
+            searchInput.addEventListener("input", () => {
+                const query = searchInput.value.trim();
+                if (query.length > 0) {
+                    fetchSuggestions(query);
+                } else {
+                    displayAllArtists();
+                }
+            });
+        });
+    </script>
+    
+</html>
